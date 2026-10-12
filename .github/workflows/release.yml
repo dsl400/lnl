@@ -24,12 +24,12 @@ jobs:
         run: test "${GITHUB_REF_NAME}" = "v$(node -p "require('./package.json').version")"
       - run: npm run build
       - name: Check the committed bundle is the build
-        run: git diff --exit-code .claude/skills/lnl/lnl.mjs
+        run: git diff --exit-code skills/lnl/lnl.mjs
       - name: Write the version of the tag into the skill
-        run: sed -i "0,/^  version: .*/s//  version: ${GITHUB_REF_NAME#v}/" .claude/skills/lnl/SKILL.md && grep -q "^  version: ${GITHUB_REF_NAME#v}$" .claude/skills/lnl/SKILL.md
-      - run: node .claude/skills/lnl/lnl.mjs lint AGENTS.md
-      - run: node .claude/skills/lnl/lnl.mjs lint .claude/skills/lnl/SKILL.md
+        run: sed -i "0,/^  version: .*/s//  version: ${GITHUB_REF_NAME#v}/" skills/lnl/SKILL.md && grep -q "^  version: ${GITHUB_REF_NAME#v}$" skills/lnl/SKILL.md
+      - run: node skills/lnl/lnl.mjs lint AGENTS.md
+      - run: node skills/lnl/lnl.mjs lint skills/lnl/SKILL.md
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" .claude/skills/lnl/SKILL.md .claude/skills/lnl/lnl.mjs --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" skills/lnl/SKILL.md skills/lnl/lnl.mjs --title "$GITHUB_REF_NAME" --generate-notes

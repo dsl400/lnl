@@ -58,7 +58,7 @@ PLAN:
 | `lnl graph` | emits Mermaid or Graphviz: labels are nodes, JUMPs are wires with their condition, CALLs are subflow nodes, back-edges show their counter |
 | `lnl edit` | opens a local editor: a Rete.js node canvas with one node per label, its rows in the node, JUMP and STOP rows as output wires, the fall-through as a "next" wire; lint diagnostics show in the node of their row; Save keeps the Markdown around the block byte for byte and stops when the file changed on disk |
 
-The skill `.claude/skills/lnl/SKILL.md` tells an agent how to write a flow
+The skill `skills/lnl/SKILL.md` tells an agent how to write a flow
 and run `lnl lint` on it; a rule or a skill written in lnl calls it.
 
 What it cannot validate: the meaning inside a CHECK or an ASK. That stays the

@@ -5,7 +5,7 @@ arrives, you SHALL run the program below from `START`, before any other
 action, and follow it line by line until `END`.</rule>
 
 <rule name="same-language">WHEN you write a skill or a rule, use the
-language below and `CALL ./.claude/skills/lnl/SKILL.md`: that skill holds
+language below and `CALL ./skills/lnl/SKILL.md`: that skill holds
 the validation script and how to run it.</rule>
 
 ```lnl

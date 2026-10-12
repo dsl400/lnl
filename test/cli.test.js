@@ -64,7 +64,7 @@ test('dot graph: CALL with call and return edges, escaped text', async () => {
 
 test('the flows the project ships lint clean', async () => {
   const root = path.resolve(import.meta.dirname, '..');
-  for (const file of ['AGENTS.md', '.claude/skills/lnl/SKILL.md']) {
+  for (const file of ['AGENTS.md', 'skills/lnl/SKILL.md']) {
     const r = await cli('lint', path.join(root, file), '--root', root);
     assert.equal(r.status, 0, `${file}: ${r.out}`);
   }
