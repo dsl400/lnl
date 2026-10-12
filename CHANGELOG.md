@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12
+
+### Added
+
+- `lnl edit` has three view modes: Nodes (the editable canvas), Blocks (one node per
+  basic block, drawn by Mermaid, Ctrl+wheel zooms), and Listing (the rows as written
+  with a jump column: hover traces, click follows, Alt+← goes back).
+
+### Changed
+
+- The lnl skill (`SKILL.md`) is rewritten: when and how to use lnl, the vocabulary,
+  the frontmatter of skills and rules, and the commands of `lnl.mjs`.
+
 ## [0.1.0] - 2026-10-10
 
 ### Changed

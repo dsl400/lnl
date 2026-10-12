@@ -49,3 +49,8 @@ test('a save acknowledges the revision it sent, not the edits made while it was 
   await quiet;
   assert.equal(taken.length, 1, 'a save with no edit in flight adopts the document');
 });
+
+test('the page offers the Nodes, Blocks, and Listing view modes', () => {
+  for (const v of ['rete', 'blocks', 'listing']) assert.match(PAGE, new RegExp(`data-view="${v}"`));
+  assert.match(PAGE, /function drawListing\(/);
+});

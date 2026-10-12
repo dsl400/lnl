@@ -28,6 +28,8 @@ test('edit server: open, check, save unchanged, conflict, draft', async (t) => {
   assert.deepEqual(doc.header, []);
   assert.deepEqual(doc.diagnostics, []);
   assert.match(doc.mermaid, /flowchart TD/);
+  assert.match(doc.blocks, /flowchart TD/);
+  assert.equal(doc.listing[0].rows[0].label, 'START');
 
   const saved = await api(url, '/api/save', { rows: doc.rows, digest: doc.digest });
   assert.equal(saved.status, 200);
@@ -37,6 +39,9 @@ test('edit server: open, check, save unchanged, conflict, draft', async (t) => {
   assert.equal(check.diagnostics[0].code, 'LNL022');
   assert.equal(check.diagnostics[0].line, 5);
   assert.equal(check.mermaid, null);
+  assert.deepEqual([check.blocks, check.listing], [null, null], 'an invalid flow draws no view');
+  const unsaved = (await api(url, '/api/check', { rows: ['START:', '  SAY unsaved', '  END'] })).body;
+  assert.equal(unsaved.listing[0].rows[1].text, '  SAY unsaved', 'the views use the unsaved rows');
   assert.equal(readFileSync(file, 'utf8'), before, 'check writes nothing');
 
   writeFileSync(file, before.replace('SAY report', 'SAY tell'));

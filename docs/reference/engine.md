@@ -111,6 +111,8 @@ Lint and graph must use the same interpretation of the flow. A change to the fil
 
 Opening and saving without changes must keep the file identical. A change must keep unaffected comments. The editor must detect external changes before saving and ask for the conflict to be resolved, without silent overwriting.
 
+The editor must offer two read-only views of the same lint beside the editable one: a block view, with one node per basic block of the flow (Aho et al., Compilers, section 8.4), and a listing view, with the rows of the block as written and each jump drawn beside them from its row to its label. Both views must follow the unsaved rows and must show nothing while the flow is invalid. In the listing view, the user must be able to follow a jump to its label and go back.
+
 An invalid document may be saved as a draft, with visible diagnostics. The editor must not automatically turn free text into conditions.
 
 ## CLI contract

@@ -30,6 +30,7 @@ export function load(entryPath, root = process.cwd(), sources = new Map()) {
     }
     const program = parse(source, shown);
     program.real = real;
+    program.source = source;
     const flow = buildFlow(program);
     diagnostics.push(...program.diagnostics, ...flow.diagnostics);
     return flow;

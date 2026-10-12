@@ -7,6 +7,10 @@
 // The libraries load from esm.sh without a build, so the bundle stays one file
 // (docs/tmp.md D4): rete, rete-area-plugin, rete-connection-plugin, rete-react-plugin
 // with React 18, and @dagrejs/dagre for the layout (the file keeps no positions).
+// Three view modes share the header (docs/reference/engine.md, Visual editor): Nodes is
+// the editable canvas; Blocks (basic blocks drawn by Mermaid) and Listing (the rows with
+// a jump column, as a disassembler shows them) are read-only views the server derives
+// from the same lint, refreshed after each check.
 // The server splits the rows into sections (src/document.js toSections); the page joins
 // them back, so an unchanged document saves byte for byte.
 const ESM = 'https://esm.sh';
@@ -23,7 +27,32 @@ export const PAGE = `<!doctype html>
   header { display: flex; gap: .6rem; align-items: center; padding: .4rem 1rem; border-bottom: 1px solid #ddd; }
   header .file { font-family: monospace; flex: 1; }
   main { display: grid; grid-template-columns: 1fr 22rem; overflow: hidden; }
+  #views { position: relative; overflow: hidden; }
   #rete { height: 100%; background: #f4f4f6; }
+  #blocks, #listing { position: absolute; inset: 0; overflow: auto; background: #fff; }
+  #blocks { padding: 1rem; box-sizing: border-box; }
+  #blocks svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .views button[aria-pressed=true] { background: #335; color: #fff; }
+  .stale { padding: 1rem; color: #a00; font-family: monospace; }
+  .lst { display: flex; font: 12px/20px ui-monospace, monospace; }
+  .lst svg { flex: none; }
+  .lst svg path { fill: none; stroke: #8a9bb5; stroke-width: 1.4; }
+  .lst svg path.back { stroke: #9b59c9; }
+  .lst svg path.stop { stroke: #d99; stroke-dasharray: 3 3; }
+  .lst svg path.on { stroke: #e08a00 !important; stroke-width: 3; stroke-dasharray: none; }
+  .lst .rows { flex: 1; min-width: 0; }
+  .lst .row { display: flex; gap: 10px; height: 20px; white-space: pre; padding-right: 10px; }
+  .lst .row:hover { background: #f2f4f8; }
+  .lst .row.hit { background: #fff3c4; }
+  .lst .row.lab { border-top: 1px solid #e3e3e8; font-weight: bold; }
+  .lst .ln { color: #999; width: 34px; text-align: right; flex: none; }
+  .lst .code { overflow: hidden; text-overflow: ellipsis; }
+  .lst .xref { margin-left: auto; color: #999; font-size: 11px; }
+  .lst a { color: #1a5fb4; cursor: pointer; text-decoration: none; }
+  .lst a:hover { text-decoration: underline; }
+  .lst .op-ASK { color: #b06d00; } .lst .op-JUMP { color: #1a5fb4; } .lst .op-STOP { color: #c00; }
+  .lst .op-CHECK { color: #08779b; } .lst .op-END, .lst .op-SAY { color: #2a7d2a; } .lst .op-CALL { color: #7a3fb0; }
+  .lst h4 { margin: .6rem 0 .2rem 1rem; font: bold 12px monospace; color: #555; }
   aside { overflow: auto; padding: .5rem 1rem; border-left: 1px solid #ddd; font-size: 13px; }
   aside h3 { margin: .8rem 0 .3rem; font-size: 13px; }
   #problems { color: #c00; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
@@ -42,6 +71,12 @@ export const PAGE = `<!doctype html>
 <body>
 <header>
   <span class="file" id="file"></span>
+  <span class="views">
+    <button data-view="rete" aria-pressed="true">Nodes</button>
+    <button data-view="blocks" aria-pressed="false">Blocks</button>
+    <button data-view="listing" aria-pressed="false">Listing</button>
+  </span>
+  <label title="draw the jump of each STOP to REVIEW in Listing"><input type="checkbox" id="stops"> STOP→REVIEW</label>
   <span id="status"></span>
   <button id="add">+ label</button>
   <button id="arrange">Arrange</button>
@@ -49,7 +84,11 @@ export const PAGE = `<!doctype html>
   <button id="save">Save</button>
 </header>
 <main>
-  <div id="rete"></div>
+  <div id="views">
+    <div id="rete"></div>
+    <div id="blocks" hidden></div>
+    <div id="listing" hidden></div>
+  </div>
   <aside>
     <div id="conflict" hidden>
       The file changed on disk since it was opened.
@@ -61,6 +100,7 @@ export const PAGE = `<!doctype html>
     <h3>Rows before the first label</h3>
     <textarea id="header-rows" spellcheck="false"></textarea>
     <h3>How to</h3>
+    <p>Nodes edits; Blocks (Ctrl+wheel zooms) and Listing show the last valid lint. In Listing, hover a row or an arrow to trace it, click a target or an arrow to follow it, Alt+← to go back.</p>
     <p>Each node is a label with its rows. Edit the rows in the node. Drag a wire from a JUMP output onto a node to change the target of that JUMP. The "next" wire is the fall-through to the label that follows in the file: use ↑ ↓ to reorder. Ctrl+S saves.</p>
   </aside>
 </main>
@@ -273,7 +313,9 @@ async function mark(diagnostics) {
 }
 async function check() {
   const r = await fetch('/api/check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows: rows() }) });
-  mark((await r.json()).diagnostics);
+  const a = await r.json();
+  mark(a.diagnostics);
+  setViews(a);
 }
 async function take(doc) {
   Object.assign(state, { file: doc.file, rows: doc.rows, header: doc.header, blockStart: doc.blockStart, digest: doc.digest, dirty: false, disk: null });
@@ -283,6 +325,7 @@ async function take(doc) {
   await show(doc);
   generate();
   mark(doc.diagnostics);
+  setViews(doc);
   setStatus();
 }
 async function load() { take(await (await fetch('/api/doc')).json()); }
@@ -312,6 +355,118 @@ $('add').addEventListener('click', async () => {
 $('header-rows').addEventListener('change', (e) => { state.header = e.target.value === '' ? [] : e.target.value.split('\\n'); touch(); });
 $('take-disk').addEventListener('click', () => take(state.disk));
 $('keep-mine').addEventListener('click', () => save(state.disk.digest));
+// View modes. state.view is the shown one; state.views holds what the server derived.
+state.view = 'rete';
+state.views = { blocks: null, listing: null, drawn: '' };
+let mermaid = null;
+function setViews(a) {
+  if (a.blocks !== undefined) { state.views.blocks = a.blocks; state.views.listing = a.listing; state.views.drawn = ''; }
+  drawView();
+}
+async function drawView() {
+  const v = state.view;
+  if (v === 'rete' || state.views.drawn === v) return;
+  state.views.drawn = v;
+  const el = $(v);
+  if (v === 'blocks') {
+    if (!state.views.blocks) { el.innerHTML = '<div class="stale">The flow has errors: fix them in Nodes to draw Blocks.</div>'; return; }
+    mermaid ??= (await import('${ESM}/mermaid@11.4.1')).default;
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', themeVariables: { fontSize: '12px' }, flowchart: { htmlLabels: true, nodeSpacing: 25, rankSpacing: 30 } });
+    const { svg } = await mermaid.render('lnl-blocks', state.views.blocks);
+    el.innerHTML = svg;
+    zoom(el, Math.min(1, (el.clientWidth - 32) / el.querySelector("svg").viewBox.baseVal.width));
+  } else {
+    if (!state.views.listing) { el.innerHTML = '<div class="stale">The flow has errors: fix them in Nodes to draw Listing.</div>'; return; }
+    drawListing(el, state.views.listing);
+  }
+}
+// Ctrl+wheel zooms the block diagram; the panel scrolls it.
+let scale = 1;
+function zoom(el, to) {
+  scale = Math.min(3, Math.max(0.2, to));
+  const svg = el.querySelector('svg');
+  if (!svg) return;
+  const w = svg.viewBox.baseVal.width;
+  svg.style.width = w * scale + 'px';
+  svg.style.maxWidth = 'none';
+}
+$('blocks').addEventListener('wheel', (e) => { if (!e.ctrlKey) return; e.preventDefault(); zoom($('blocks'), scale * (e.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// One file of the listing: an SVG jump column beside the rows. A jump runs from the
+// row that transfers to the row of its label; its lane is the distance from the text.
+function drawListing(el, files) {
+  const R = 20, L = 11, NS = 'http://www.w3.org/2000/svg';
+  el.innerHTML = '';
+  files.forEach((f, fi) => {
+    const lanes = Math.max(0, ...f.jumps.map((j) => j.lane + 1));
+    const W = lanes * L + 14;
+    const refs = f.rows.map(() => []);
+    f.jumps.forEach((j, k) => refs[j.to].push(k));
+    const rowId = (r) => 'L' + fi + '_' + r;
+    const html = f.rows.map((row, r) => {
+      const code = row.text.replace(/\\s;.*$/, '');
+      let body = esc(code).replace(/^(\\s*)([A-Z]+)(?=\\s|$)/, (m, sp, op) => sp + '<span class="op-' + op + '">' + op + '</span>');
+      for (const k of f.jumps.keys()) {
+        const j = f.jumps[k];
+        if (j.from !== r) continue;
+        if (j.stop) body += ' <a data-go="' + j.to + '" data-j="' + k + '" class="op-STOP">→ ' + j.label + '</a>';
+        else body = body.replace(new RegExp('\\\\b' + j.label + '\\\\b(?![^<]*>)'), '<a data-go="' + j.to + '" data-j="' + k + '">' + j.label + '</a>');
+      }
+      const xr = row.label && refs[r].length ? '<span class="xref">from ' + refs[r].map((k) => '<a data-go="' + f.jumps[k].from + '">' + f.rows[f.jumps[k].from].line + '</a>').join(' ') + '</span>' : '';
+      return '<div class="row' + (row.label ? ' lab' : '') + '" id="' + rowId(r) + '" data-r="' + r + '"><span class="ln">' + row.line + '</span><span class="code">' + body + '</span>' + xr + '</div>';
+    }).join('');
+    const box = document.createElement('div');
+    if (files.length > 1) box.insertAdjacentHTML('beforeend', '<h4>' + esc(f.file) + '</h4>');
+    const lst = document.createElement('div');
+    lst.className = 'lst';
+    lst.innerHTML = '<svg width="' + W + '" height="' + f.rows.length * R + '"></svg><div class="rows">' + html + '</div>';
+    box.appendChild(lst);
+    el.appendChild(box);
+    const svg = lst.firstChild;
+    const y = (r) => r * R + R / 2;
+    const paths = f.jumps.map((j, k) => {
+      const x = W - 8 - (j.lane + 1) * L, p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', 'M' + W + ' ' + y(j.from) + 'H' + x + 'V' + y(j.to) + 'H' + (W - 1) + 'm-5 -4l5 4l-5 4');
+      p.setAttribute('class', (j.back ? 'back ' : '') + (j.stop ? 'stop' : ''));
+      if (j.stop && !$('stops').checked) p.style.display = 'none';
+      p.dataset.stop = j.stop ? '1' : '';
+      p.addEventListener('mouseenter', () => on([k]));
+      p.addEventListener('mouseleave', () => on([]));
+      p.addEventListener('click', () => go(j.to));
+      svg.appendChild(p);
+      return p;
+    });
+    const on = (ks) => paths.forEach((p, k) => p.classList.toggle('on', ks.includes(k)));
+    const go = (r, push = true) => {
+      const target = lst.querySelector('[data-r="' + r + '"]');
+      if (!target) return;
+      if (push) history.pushState({ lnl: target.id }, '');
+      el.querySelectorAll('.hit').forEach((e) => e.classList.remove('hit'));
+      target.classList.add('hit');
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
+    lst.querySelectorAll('.row').forEach((row) => {
+      const r = Number(row.dataset.r);
+      row.addEventListener('mouseenter', () => on(f.jumps.flatMap((j, k) => (j.from === r || j.to === r ? [k] : []))));
+      row.addEventListener('mouseleave', () => on([]));
+    });
+    lst.querySelectorAll('a[data-go]').forEach((a) => a.addEventListener('click', () => go(Number(a.dataset.go))));
+  });
+}
+window.addEventListener('popstate', (e) => {
+  const t = e.state?.lnl && document.getElementById(e.state.lnl);
+  if (!t) return;
+  $('listing').querySelectorAll('.hit').forEach((x) => x.classList.remove('hit'));
+  t.classList.add('hit');
+  t.scrollIntoView({ block: 'center' });
+});
+$('stops').addEventListener('change', (e) => $('listing').querySelectorAll('path[data-stop="1"]').forEach((p) => { p.style.display = e.target.checked ? '' : 'none'; }));
+document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
+  state.view = b.dataset.view;
+  document.querySelectorAll('[data-view]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  for (const v of ['blocks', 'listing']) $(v).hidden = v !== state.view;
+  drawView();
+}));
 window.addEventListener('beforeunload', (e) => { if (state.dirty) e.preventDefault(); });
 load();
 </script>
