@@ -3,7 +3,7 @@ name: lnl
 description: Use when you write or edit a Markdown file that holds, or will hold, an `lnl` block: a skill, a rule, or AGENTS.md.
 metadata:
   source: https://github.com/dsl400/lnl
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # lnl

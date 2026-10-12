@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-12
+
+### Added
+
+- The skill names its source and its version in `metadata.source` and
+  `metadata.version`. The release workflow writes the version of the tag.
+
+### Changed
+
+- The skill moved from `.claude/skills/lnl/` to `skills/lnl/`. The bundle builds
+  to `skills/lnl/lnl.mjs`.
+
 ## [0.2.0] - 2026-10-12
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "lnl",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lintable Natural Language: lint and draw agent flows written in lnl blocks of Markdown files",
   "type": "module",
   "bin": { "lnl": "skills/lnl/lnl.mjs" },
