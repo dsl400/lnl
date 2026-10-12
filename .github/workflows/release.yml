@@ -26,7 +26,8 @@ jobs:
       - name: Check the committed bundle is the build
         run: git diff --exit-code skills/lnl/lnl.mjs
       - name: Write the version of the tag into the skill
-        run: sed -i "0,/^  version: .*/s//  version: ${GITHUB_REF_NAME#v}/" skills/lnl/SKILL.md && grep -q "^  version: ${GITHUB_REF_NAME#v}$" skills/lnl/SKILL.md
+        run: |
+          sed -i "0,/^  version: .*/s//  version: ${GITHUB_REF_NAME#v}/" skills/lnl/SKILL.md && grep -q "^  version: ${GITHUB_REF_NAME#v}$" skills/lnl/SKILL.md
       - run: node skills/lnl/lnl.mjs lint AGENTS.md
       - run: node skills/lnl/lnl.mjs lint skills/lnl/SKILL.md
       - name: Create the release
